@@ -176,20 +176,27 @@ def newgroup(request, project_id, groups_num):
     settingsNames = []
     settingsIDs = []
 
-    userProjects = user_access.objects.filter(usr_id = userID).only("project_id")
+    userProjects = user_access.objects.filter(usr_id = userID).only('project_id')
  
     try:
         settingsCounter = 0
         for proj in userProjects:
             projID = proj.project_id
-            query = (grp.objects.filter(project_id = projID).only("settings_id").distinct("settings_id"))
+            query = grp.objects.filter(project_id = projID)
             for i in range (len(query)):
                 currQuery = query[i].settings_id
-                userSettings.append(currQuery)
+
+                noAdd = True
+                for checkDups in userSettings:
+                    if checkDups == currQuery:
+                        noAdd = False
+
+                if noAdd:
+                    userSettings.append(currQuery)
  
         namesCounter = 0    
         for setts in userSettings:
-            query = (settings.objects.filter(id = setts).distinct("name"))
+            query = settings.objects.filter(id = setts)
  
             for i in range (len(query)):
                 currQueryName = query[i].name
