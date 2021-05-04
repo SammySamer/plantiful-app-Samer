@@ -1,0 +1,1 @@
+web: gunicorn plantifultest.wsgi:application --log-file -
