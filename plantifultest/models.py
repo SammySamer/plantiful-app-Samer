@@ -75,6 +75,7 @@ class settings(models.Model):
 class grp(models.Model):
     project_id = models.IntegerField()
     settings_id = models.IntegerField()
+    camera_id = models.TextField()
     id = models.AutoField(primary_key=True)
 
     class Meta:
