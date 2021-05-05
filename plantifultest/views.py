@@ -142,7 +142,8 @@ def newproject(request):
     userID = currUser['id']
     request.session['group_index'] = 0
     request.session['extra_index'] = 0
-    request.session['createdGroups'] = []
+    request.session['whichGroup'] = []
+    request.session['createdGroups_sID'] = []
 
     if(request.method == "POST"):
         project_name = request.POST["project_name"]
@@ -219,6 +220,8 @@ def newgroup(request, project_id, groups_num):
     settingsInfo = list(zip(settingsNames, settingsIDs))
 
     # --- End of Project Selection Options --- #
+
+
     group_ids = []
     num_sensors = []
 
@@ -235,15 +238,38 @@ def newgroup(request, project_id, groups_num):
         for form in form_set:
             if form_set.is_valid:
                 val = form.save(commit=False)
-                val.save()
-                sId = int(val.id)
-                camera_id = camera_ids[x]
-                create_grp = grp(project_id = int(project_id), settings_id = sId, camera_id = camera_id)
-                x = x + 1
-                create_grp.save()
-                number_of_sensor_blocks = form.cleaned_data['number_of_sensor_blocks']
-                group_ids.append(int(create_grp.id))
-                num_sensors.append(int(number_of_sensor_blocks))
+                sID_Dropdown_List = request.session.get('createdGroups_sID')
+                
+                # checks if fields were left empty. Ideally we check them all.
+                if val.name != '' or val.max_ph != None:
+                    val.save()
+                    sId = int(val.id)
+
+                    camera_id = camera_ids[x]
+                    x = x + 1
+
+                    create_grp = grp(project_id = int(project_id), settings_id = sId, camera_id = camera_id)
+                    create_grp.save()
+                    group_ids.append(int(create_grp.id))
+
+                    number_of_sensor_blocks = form.cleaned_data['number_of_sensor_blocks']
+                    num_sensors.append(int(number_of_sensor_blocks))
+
+                #so user selected from dropdown
+                elif len(sID_Dropdown_List) > 0:     
+                    sId = sID_Dropdown_List[0]
+                    sID_Dropdown_List.pop(0)
+                    request.session['createdGroups_sID'] = sID_Dropdown_List
+
+                    camera_id = camera_ids[x]
+                    x = x + 1
+
+                    create_grp = grp(project_id = int(project_id), settings_id = sId, camera_id = camera_id)                   
+                    create_grp.save()
+                    group_ids.append(int(create_grp.id))
+
+                    number_of_sensor_blocks = settings.objects.get(id = sId).only('number_of_sensor_blocks')
+                    num_sensors.append(int(number_of_sensor_blocks))
 
         request.session['group_ids'] = group_ids
         request.session['num_sensors'] = num_sensors
@@ -280,6 +306,7 @@ def newgroup(request, project_id, groups_num):
     length = len(num_sensors)
     if extra_index == len(num_sensors):
         return redirect('/app/')
+
     else:
         SensorFormSet = modelformset_factory(sensor_block, exclude=('group_id','sensor_block_name',), extra = num_sensors[extra_index])
         sensor_set = SensorFormSet(queryset = sensor_block.objects.none())
@@ -290,12 +317,11 @@ def update_settings_dropdown(request, project_id, groups_num):
     dropdownValue = request.GET.get('dropdownValue')
 
     if dropdownValue != 0: 
-        create_grp = grp(project_id = project_id, settings_id = dropdownValue)
-        create_grp.save()
-        grpBool = True
-        print("YES")
+        currG_sID = request.session.get('createdGroups_sID')
+        currG_sID.append(dropdownValue)
+        request.session['createdGroups_sID'] = currG_sID
+    return (request, 'Empty.html', {})
 
-    return render(request, 'update_settings_drop.html', {'grpBool':grpBool})
 
 def project_settings(request, project_id):
 
