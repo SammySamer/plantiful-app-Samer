@@ -260,64 +260,19 @@
                     <div class="p-5">
                       {% include 'messages.html' %}
                       <div class="text-center">
-                        <h1 class="h4 text-gray-900 mb-4">{{project_name}}</h1>
+                        <h1 class="h4 text-gray-900 mb-4">Sensor Names</h1>
                       </div>
                       <form class="user" method="POST">
                         {% csrf_token %}
-                        {{ form_set.management_form }}
-                        {% for form in form_set %}
-
-                        <div class="text-center">
-                          <h2 class="h5 text-gray-900 mb-2">Group {{forloop.counter}}</h2>
-                        </div>
-
+                        {{ sensor_set.management_form }}
+                        {% for form in sensor_set %}
                         <div class="form-group">
-                          <b><label>Choose settings from existing project:</label></b>
-                          <select class="form-control" id="ProjectSelect">
-                            <option selected="selected" disabled value=0> Select a setting </option>
-                            {% for sID in settingsInfo %}
-                            <option value="{{ sID.1 }}">
-                              {{sID.0}}
-                            </option>
-                            {% endfor %}
-                            <option value=0> None </option>
-                          </select>
-
-                          <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"> </script>
-                          <script>
-                            $('#ProjectSelect').on('change', function () {
-                              var units = {
-                                dropdownValue: $(this).val()
-                              };
-
-                              $.ajax({
-                                type: 'GET',
-                                url: 'ajax',
-                                data: units,
-                                success: function () {
-                                  print("SUCCESS");
-                                  console.log(data);
-                                },
-                                error: function () {
-                                  print("Oops");
-                                  console.log('error');
-                                }
-                              });
-
-                            });
-                          </script>
-
+                          <label for="exampleFormControlSelect1">Sensor {{forloop.counter}} Name:</label>
+                          <input type="text" class="form-control" name="sensor_block_name">
                         </div>
-                        <b><label for="ProjectSelect">Or enter new settings:</label></b>
-                        {{form|crispy}}
-                        <div class="form-group">
-                          <label for="exampleFormControlSelect1">Camera ID:</label>
-                          <input type="text" class="form-control" name="camera_id">
-                        </div>
-                        <hr>
                         {% endfor %}
 
-                        <input class="btn btn-success btn-user btn-block" type="submit" value="Apply Settings" name="group_btn"/>
+                        <input class="btn btn-success btn-user btn-block" type="submit" value="Apply" name="sensor_btn"/>
                         <div class="text-center">
                           <a class="small" href="{% url 'dashboard' %}">cancel</a>
                         </div>

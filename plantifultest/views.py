@@ -15,6 +15,7 @@ import datetime
 from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.decorators import login_required
+from django.template.loader import render_to_string
 
 def register(request):
     # return HttpResponse('register')
@@ -139,6 +140,9 @@ def dashboard(request):
 def newproject(request):
     currUser = request.session.get('user')
     userID = currUser['id']
+    request.session['group_index'] = 0
+    request.session['extra_index'] = 0
+    request.session['createdGroups'] = []
 
     if(request.method == "POST"):
         project_name = request.POST["project_name"]
@@ -166,7 +170,7 @@ def newproject(request):
 
 
 def newgroup(request, project_id, groups_num):
-
+    
     # --- Start of Project Selection Options --- #
 
     currUser = request.session.get('user')
@@ -215,28 +219,72 @@ def newgroup(request, project_id, groups_num):
     settingsInfo = list(zip(settingsNames, settingsIDs))
 
     # --- End of Project Selection Options --- #
+    group_ids = []
+    num_sensors = []
 
     project_obj = project.objects.get(id=project_id)
     project_name = project_obj.project_name
 
-    SettingsFormSet = modelformset_factory(settings, exclude=(), extra=int(groups_num))
+    SettingsFormSet = modelformset_factory(settings, exclude=(), extra = int(groups_num))
     form_set = SettingsFormSet(queryset=settings.objects.none())
 
-    if request.method == "POST":
+    if request.method == "POST" and 'group_btn' in request.POST:
         form_set = SettingsFormSet(request.POST or None, request.FILES or None)
+        camera_ids = request.POST.getlist('camera_id')
+        x = 0
         for form in form_set:
-            if form_set.is_valid and form.name != None:
+            if form_set.is_valid:
                 val = form.save(commit=False)
                 val.save()
                 sId = int(val.id)
-                create_grp = grp(project_id = int(project_id), settings_id = sId)
+                camera_id = camera_ids[x]
+                create_grp = grp(project_id = int(project_id), settings_id = sId, camera_id = camera_id)
+                x = x + 1
                 create_grp.save()
+                number_of_sensor_blocks = form.cleaned_data['number_of_sensor_blocks']
+                group_ids.append(int(create_grp.id))
+                num_sensors.append(int(number_of_sensor_blocks))
 
+        request.session['group_ids'] = group_ids
+        request.session['num_sensors'] = num_sensors
 
+        # First sensor form
+        SensorFormSet = modelformset_factory(sensor_block, exclude=('group_id','sensor_block_name'), extra = num_sensors[0])
+        sensor_set = SensorFormSet(queryset = sensor_block.objects.none())
+        return render(request, 'sensors.html',{'sensor_set':sensor_set})
+    
+    if request.method != "POST":
+        return render(request, 'newgroup.html',{'project_name':project_name, 'form_set':form_set, 
+        'namesCounter':range(namesCounter), 'settingsInfo':settingsInfo})
+
+    # Rest of sensor forms
+    num_sensors = request.session.get('num_sensors')
+    group_ids = request.session.get('group_ids')
+    SensorFormSet = modelformset_factory(sensor_block, exclude=('group_id','sensor_block_name'), extra = num_sensors[0])
+    sensor_set = SensorFormSet(queryset = sensor_block.objects.none())
+
+    if request.method == "POST" and 'sensor_btn' in request.POST:
+        sensor_set = SensorFormSet(request.POST or None, request.FILES or None)
+        page_num = request.session.get('page_num')
+        sensor_names = request.POST.getlist('sensor_block_name')
+        group_index = request.session.get('group_index')
+        sensor_index = 0
+
+        for sensor in sensor_set:
+            create_sensor = sensor_block(group_id = group_ids[group_index], sensor_block_name = sensor_names[sensor_index]).save()
+            sensor_index = sensor_index + 1
+        request.session['group_index'] = request.session.get('group_index') + 1
+
+    request.session['extra_index'] = request.session.get('extra_index') + 1
+    extra_index = request.session.get('extra_index')
+    length = len(num_sensors)
+    if extra_index == len(num_sensors):
         return redirect('/app/')
-
-    return render(request, 'newgroup.html',{'project_name':project_name, 'form_set':form_set, 
-    'namesCounter':range(namesCounter), 'settingsInfo':settingsInfo})
+    else:
+        SensorFormSet = modelformset_factory(sensor_block, exclude=('group_id','sensor_block_name',), extra = num_sensors[extra_index])
+        sensor_set = SensorFormSet(queryset = sensor_block.objects.none())
+        return render(request, 'sensors.html',{'sensor_set':sensor_set})
+    
 
 def update_settings_dropdown(request, project_id, groups_num):
     dropdownValue = request.GET.get('dropdownValue')
