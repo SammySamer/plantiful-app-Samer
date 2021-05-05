@@ -268,7 +268,8 @@ def newgroup(request, project_id, groups_num):
                     create_grp.save()
                     group_ids.append(int(create_grp.id))
 
-                    number_of_sensor_blocks = settings.objects.get(id = sId).only('number_of_sensor_blocks')
+                    currSettingsObject = settings.objects.get(id = sId)
+                    number_of_sensor_blocks = currSettingsObject.number_of_sensor_blocks
                     num_sensors.append(int(number_of_sensor_blocks))
 
         request.session['group_ids'] = group_ids
@@ -320,7 +321,7 @@ def update_settings_dropdown(request, project_id, groups_num):
         currG_sID = request.session.get('createdGroups_sID')
         currG_sID.append(dropdownValue)
         request.session['createdGroups_sID'] = currG_sID
-    return (request, 'Empty.html', {})
+    return render(request, 'Empty.html', {})
 
 
 def project_settings(request, project_id):
