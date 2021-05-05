@@ -1,5 +1,5 @@
 #all data fetching logic goes here
-from .models import users,user_token,user_access,notification,sensor_block,sensor_block_reading,grp,project,health,growth,settings
+from .models import *
 from django.forms.models import model_to_dict
 from pprint import pprint
 from plotly.offline import plot
@@ -127,14 +127,53 @@ def getSelectedData(request, user_id):
 
 def getPlots(chart_sensor_data,n):
 
-    SMplot =  plot([Scatter(x=chart_sensor_data[4], y=chart_sensor_data[0][:144:n],mode='lines+markers', name='test',marker_color='red')],
-            output_type='div', include_plotlyjs=False)
-    phPlot =  plot([Scatter(x=chart_sensor_data[4], y=chart_sensor_data[1][:144:n],mode='lines+markers', name='test',marker_color='blue')],
-            output_type='div', include_plotlyjs=False)
-    Tplot =  plot([Scatter(x=chart_sensor_data[4], y=chart_sensor_data[2][:144:n],mode='lines+markers', name='test',marker_color='green')],
-            output_type='div', include_plotlyjs=False)
-    Hplot =  plot([Scatter(x=chart_sensor_data[4], y=chart_sensor_data[3][:144:n],mode='lines+markers', name='test',marker_color='yellow')],
-            output_type='div', include_plotlyjs=False)
+    fig=go.Figure(data=go.Scatter(x=chart_sensor_data[4], y=chart_sensor_data[0][:144:n],mode='lines+markers',marker_color='mediumspringgreen'))
+    fig.update_layout(title='Soil Moisture over the Last Week',
+                   xaxis_title='DateTime',
+                   yaxis_title='Soil Moisture %')
+    SMplot=plot(fig,output_type='div',include_plotlyjs=False)
+
+    fig=go.Figure(data=go.Scatter(x=chart_sensor_data[4], y=chart_sensor_data[1][:144:n],mode='lines+markers',marker_color='gold'))
+    fig.update_layout(title='pH over the Last Week',
+                   xaxis_title='DateTime',
+                   yaxis_title='pH')
+    phPlot=plot(fig,output_type='div',include_plotlyjs=False)
+
+
+    fig=go.Figure(data=go.Scatter(x=chart_sensor_data[4], y=chart_sensor_data[2][:144:n],mode='lines+markers',marker_color='royalblue'))
+    fig.update_layout(title='Temperature over the Last Week',
+                   xaxis_title='DateTime',
+                   yaxis_title='Temperature °C')
+   
+    Tplot=plot(fig,output_type='div',include_plotlyjs=False)
+
+    fig=go.Figure(data=go.Scatter(x=chart_sensor_data[4], y=chart_sensor_data[3][:144:n],mode='lines+markers',marker_color='darkturquoise'))
+    fig.update_layout(title='Humidity over the Last Week',
+                   xaxis_title='DateTime',
+                   yaxis_title='Humidity %')
+    Hplot=plot(fig,output_type='div',include_plotlyjs=False)
+
+  
     return Tplot,SMplot,Hplot,phPlot
+
+
+def getPrediction(selected_group_id):
+    growth=""
+    health=""
+    img_path=""
+    print("in prediction controller")
+    if(selected_group_id!=False):
+        growth="No images were taken yet."
+        health="No"
+        img_path=False
+        print("group")
+        print(selected_group_id)
+        predict = prediction.objects.filter(group_id=selected_group_id).order_by('-created_at')
+        if(len(predict)>0):
+            growth=getattr(predict[0],'growth_stage')
+            health=getattr(predict[0],'health')
+            img_path="https://cloud-cube-us2.s3.amazonaws.com/"+getattr(predict[0],'image_path')
+    return growth,health,img_path
+
 
 

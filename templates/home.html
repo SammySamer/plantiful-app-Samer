@@ -55,7 +55,7 @@
 
         <!-- Nav Item - Dashboard -->
         <li class="nav-item active">
-          <a class="nav-link" href="index.html">
+          <a class="nav-link" href="{% url 'dashboard' %}">
             <i class="fas fa-fw fa-tachometer-alt"></i>
             <span>Dashboard</span></a
           >
@@ -69,12 +69,16 @@
 
         <!-- Nav Item - Collapse Menu -->
         <li class="nav-item">
-         <a class="nav-link">Group Settings</a>
+          <a class="nav-link" href="{% url 'group_settings' %}">
+            <span>Group Settings</span>
+          </a>
         </li>
 
         <!-- Nav Item - Collapse Menu -->
         <li class="nav-item">
-          <a class="nav-link"">Project Settings</a>
+          <a class="nav-link collapsed" href="{% url 'project_settings' %}">
+            <span>Project Settings</span>
+          </a>
         </li>
 
         <!-- Divider -->
@@ -118,7 +122,7 @@
                    
               </form>
 
-             <form method="POST" action="/app/" style="margin-top:12px; margin-left:12px"> 
+             <form method="POST" action="/app/" style="margin-top:12px"> 
                 {% csrf_token %}
                   <select name="select_group" class="nav_item nav-link" onChange="form.submit();">
                     <option selected="selected" disabled>Select a group:</option>
@@ -158,8 +162,8 @@
                   aria-expanded="false"
                 >
                   <i class="fas fa-bell fa-fw"></i>
-                  <!-- Counter - Alerts -->
-                  <span class="badge badge-danger badge-counter">3+</span>
+                  
+                  
                 </a>
                 <!-- Dropdown - Alerts -->
                 <div
@@ -167,50 +171,23 @@
                   aria-labelledby="alertsDropdown"
                 >
                   <h6 class="dropdown-header">Alerts Center</h6>
-                  <a class="dropdown-item d-flex align-items-center" href="#">
-                    <div class="mr-3">
-                      <div class="icon-circle bg-success">
-                        <i class="fas fa-file-alt text-white"></i>
-                      </div>
+                  
+                  {% for notification in notifications_all|slice:":2"  %}
+                  <div class="dropdown-item d-flex align-items-center" >
+                    <div >
+                      <div class="small text-gray-500">{{notification.created_at}}</div>
+                      
+                          <span class="font-weight-normal" style="white-space: pre-wrap">{{notification.msg}}</span>
+                      
                     </div>
-                    <div>
-                      <div class="small text-gray-500">December 12, 2019</div>
-                      <span class="font-weight-bold"
-                        >A new monthly report is ready to download!</span
-                      >
-                    </div>
-                  </a>
-                  <a class="dropdown-item d-flex align-items-center" href="#">
-                    <div class="mr-3">
-                      <div class="icon-circle bg-success">
-                        <i class="fas fa-donate text-white"></i>
-                      </div>
-                    </div>
-                    <div>
-                      <div class="small text-gray-500">December 7, 2019</div>
-                      $290.29 has been deposited into your account!
-                    </div>
-                  </a>
-                  <a class="dropdown-item d-flex align-items-center" href="#">
-                    <div class="mr-3">
-                      <div class="icon-circle bg-warning">
-                        <i class="fas fa-exclamation-triangle text-white"></i>
-                      </div>
-                    </div>
-                    <div>
-                      <div class="small text-gray-500">December 2, 2019</div>
-                      Spending Alert: We've noticed unusually high spending for
-                      your account.
-                    </div>
-                  </a>
-                  <a
-                    class="dropdown-item text-center small text-gray-500"
-                    href="#"
+                  </div>
+                  {% endfor %}
+                  <a class="dropdown-item text-center small text-gray-500" href="#"
                     >Show All Alerts</a
                   >
                 </div>
-              </li>
 
+              </li>
               
              
 
@@ -244,9 +221,13 @@
                     <i class="fas fa-user fa-sm fa-fw mr-2 text-gray-400"></i>
                     Profile
                   </a>
-                  <a class="dropdown-item">
+                  <a class="dropdown-item" href="{% url 'change_password' %}">
                     <i class="fas fa-cogs fa-sm fa-fw mr-2 text-gray-400"></i>
                     Change Password
+                  </a>
+                  <a class="dropdown-item" href="#">
+                    <i class="fas fa-cogs fa-sm fa-fw mr-2 text-gray-400"></i>
+                    Settings
                   </a>
                   <a class="dropdown-item" href="#">
                     <i class="fas fa-list fa-sm fa-fw mr-2 text-gray-400"></i>
@@ -255,7 +236,7 @@
                   <div class="dropdown-divider"></div>
                   <a
                     class="dropdown-item"
-                    href="#"
+                    href="{% url 'login' %}"
                     data-toggle="modal"
                     data-target="#logoutModal"
                   >
@@ -273,12 +254,9 @@
           <!-- Begin Page Content -->
           <div class="container-fluid">
             <!-- Page Heading -->
-            <div
-              class="d-sm-flex align-items-center justify-content-between mb-4"
-            >
+            <div class="d-sm-flex align-items-center justify-content-between mb-4">
               <h1 class="h3 mb-0 text-gray-800">Dashboard</h1>
 
-                  
               <form method="POST" action="/app/">
                 {% csrf_token %}
                   <select name="select_blocks" class="d-none d-sm-inline-block btn btn-sm btn-success shadow-sm" onChange="form.submit();">
@@ -303,26 +281,12 @@
                   >
                   Generate Report
                   </a>
-                <div
-                  class="dropdown-list dropdown-menu"
-                  aria-labelledby="dropdownMenuLink"
-                >
-                  <div class="form-check form-check-inline">
-                    <input class="form-check-input" type="radio" name="inlineRadioOptions" id="inlineRadio1" value="option1">
-                    <label class="form-check-label" for="inlineRadio1">Temperature</label>
-                  </div>
-                  <div class="form-check form-check-inline">
-                    <input class="form-check-input" type="radio" name="inlineRadioOptions" id="inlineRadio2" value="option2">
-                    <label class="form-check-label" for="inlineRadio2">Soil Moisture</label>
-                  </div>
-                  <div class="form-check form-check-inline">
-                    <input class="form-check-input" type="radio" name="inlineRadioOptions" id="inlineRadio2" value="option2">
-                    <label class="form-check-label" for="inlineRadio2">Humidity</label>
-                  </div>
-                  <div class="form-check form-check-inline">
-                    <input class="form-check-input" type="radio" name="inlineRadioOptions" id="inlineRadio2" value="option2">
-                    <label class="form-check-label" for="inlineRadio2">pH level</label>
-                  </div>
+          
+                <div class="dropdown-list dropdown-menu" aria-labelledby="dropdownMenuLink">
+                  <form class="form-inline" method='POST' action="" enctype='multipart/form-data'>{% csrf_token %}
+                    {{report_form.Sensors}}
+                  </form>
+                  
 
                   <div class="form-group row">
 											<div class="col-sm-6 mb-3 mb-sm-0">
@@ -333,13 +297,11 @@
 												<label for="enddate">End date:</label>
 												<input type="date" id="enddate" name="enddate" />
 											</div>
-										</div>
-                  <a
-                    class="dropdown-item text-center small text-gray-500"
-                    href="#"
-                    >Generate</a
-                  >
+									</div>
+                  <a class="dropdown-item text-center small text-gray-500" type="button"
+                  role="button" class="btn btn-success" onclick=form.submit();>Generate</a>
                 </div>
+              </div>
               </div>
             </div>
 
@@ -591,8 +553,8 @@
                   </div>
                   <!-- Card Body -->
                   <div class="card-body">
-                    <p>Flowering</p>
-                    <img src="\static\img\flowering.jpg" style="max-height: 200px; max-width: 280px;"/>
+                    <p>{{growth}}</p>
+                    <img src={{img_path|safe}} onerror="this.style.display='none'" style="max-height: 200px; max-width: 200px;"/>
                   </div>
                   
                 </div>
@@ -640,8 +602,8 @@
                       </div>
                       <!-- Card Body -->
                       <div class="card-body">
-                        <p>Unhealthy leaves were detected.</p>
-                        <img src="\static\img\unhealthy_leaf.jpg" style="max-height: 200px; max-width: 280px;"/>
+                        <p>{{health}} leaves were detected.</p>
+                        <img src={{img_path|safe}} onerror="this.style.display='none'" style="max-height: 200px; max-width: 200px;"/>
                       </div>
                       
                     </div>
@@ -757,7 +719,7 @@
             >
               Cancel
             </button>
-            <a class="btn btn-success" href="login.html">Logout</a>
+            <a class="btn btn-success" href="{% url 'login' %}">Logout</a>
           </div>
         </div>
       </div>

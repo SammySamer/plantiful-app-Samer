@@ -3,9 +3,8 @@ from passlib.hash import pbkdf2_sha256
 from django import forms
 from django.forms.widgets import DateInput
 
-
 class users(models.Model):
-    id=models.AutoField(primary_key=True)
+    id = models.AutoField(primary_key=True)
     first_name = models.TextField(max_length=500)
     last_name = models.TextField(max_length=500)
     email = models.TextField(max_length=500)
@@ -23,7 +22,7 @@ class user_token(models.Model):
     invited_email = models.TextField(max_length=500)
     created_at = models.DateTimeField(max_length=500)
     access_type = models.IntegerField()
-
+    creator_id = models.IntegerField()
     class Meta:
         db_table = "user_token"
 
@@ -55,6 +54,7 @@ class projectForm(forms.ModelForm):
         }
 
 class settings(models.Model):
+
     number_of_sensor_blocks = models.IntegerField()
     interval_size = models.IntegerField()
     min_temperature = models.FloatField()
@@ -75,7 +75,7 @@ class settings(models.Model):
 class grp(models.Model):
     project_id = models.IntegerField()
     settings_id = models.IntegerField()
-    camera_id = models.TextField()
+    camera_id=models.TextField()
     id = models.AutoField(primary_key=True)
 
     class Meta:
@@ -111,22 +111,16 @@ class sensor_block_reading(models.Model):
     created_at = models.DateTimeField()
 
     class Meta:
-        db_table = "sensore_block_reading"
+        db_table = "sensor_block_reading"
 
 
-class health(models.Model):
+
+class prediction(models.Model):
     group_id = models.IntegerField()
-    health_state = models.TextField()
+    growth_stage = models.TextField()
     created_at = models.DateTimeField()
+    image_path=models.TextField()
+    health=models.TextField()
 
     class Meta:
-        db_table = "health"
-
-
-class growth(models.Model):
-    group_id = models.IntegerField()
-    growth_state = models.TextField()
-    created_at = models.DateTimeField()
-
-    class Meta:
-        db_table = "growth"
+        db_table = "prediction"

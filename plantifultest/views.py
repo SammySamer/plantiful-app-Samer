@@ -2,23 +2,26 @@ from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render, redirect
 from django.core import serializers
 from django.forms.models import formset_factory, model_to_dict, modelformset_factory
-from django.db import models
 from .models import *
 from django.contrib import messages
-from django.urls import reverse_lazy
-from django.urls import reverse
+from django.urls import reverse_lazy,reverse
 from passlib.hash import pbkdf2_sha256
 from plotly.offline import plot
 import plotly.graph_objs as go
 from plotly.graph_objs import Scatter
 import datetime
+from .token import token_generator
+from .token import sendInvitation
+from .controller import *
+from .forms import *
 from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.template.loader import render_to_string
 
+
+
 def register(request):
-    # return HttpResponse('register')
     if (request.method == "POST"):
         first_name = request.POST["first_name"]
         last_name = request.POST["last_name"]
@@ -71,9 +74,9 @@ def login(request):
             obj = users.objects.get(email=email)
 
             if(pbkdf2_sha256.verify(pwd, obj.pwd)):
-                # user_data = serializers.serialize('json', obj)
-                user_data = model_to_dict(obj)
-                request.session['user'] = user_data
+                #user_data = serializers.serialize('json', obj)
+                user_data=model_to_dict(obj)
+                request.session['user']=user_data
                 return redirect('dashboard')
             else:
                 messages.error(request, 'Password/email is incorrect.')
@@ -86,12 +89,56 @@ def login(request):
 
 
 def share(request):
-    notifications_not_read = notification.objects.filter(if_read=False)
-    notifications_all = notification.objects.all().order_by('-created_at')
+    user_data = request.session.get('user')
+    email=None
+    ## NAVBAR
 
-    if(request.method == "POST"):
-        email = request.POST["email"]
-        access_type_string = request.POST["access_type"]
+    disp_sb_names = sensor_block.objects.none()
+    disp_prj = project.objects.none()
+    disp_grp = grp.objects.none()
+    user_id=user_data['id']
+
+    disp_prj = getDisplayedProjects(user_id)
+    selected_project_id=request.session.get('s_p',False)
+    selected_group_id=request.session.get('s_g',False)
+
+    if (request.method == "POST"):
+        selected_sb_name = request.POST.get('select_blocks',False)
+        selected_project_id = request.POST.get('select_project',False)
+        selected_group_id = request.POST.get('select_group',False)
+        
+        print(selected_project_id)
+
+        if(selected_project_id!=False):
+            request.session['s_p']=selected_project_id
+            request.session['s_g']=False
+
+        else:
+            selected_project_id=request.session.get('s_p',False)
+
+        if(selected_group_id!=False):
+            request.session['s_g']=selected_group_id
+        else:
+            selected_group_id=request.session.get('s_g',False)
+
+        if(selected_sb_name!=False):
+            request.session['s_sb']=selected_sb_name
+        else:
+            selected_sb_name=request.session.get('s_sb',False)
+    disp_grp = getDisplayedGroups(selected_project_id)
+    ## NAVBAR
+
+
+    try:
+        notifications_not_read = notification.objects.filter(if_read=False,usr_id=user_data['id'])
+        notifications_all = notification.objects.all().order_by('-created_at')
+    except:
+        notifications_not_read=None
+        notifications_all=None
+    
+    if(selected_project_id!=False and selected_group_id!=False and request.method == "POST"):
+        email =request.POST.get('email',False)
+        access_type_string = request.POST.get("access_type",False)
         access_type = -1
 
         if(access_type_string == "editor"):
@@ -99,42 +146,170 @@ def share(request):
         elif(access_type_string == "viewer"):
             access_type = 2
 
-        try:
-            obj = users.objects.get(email=email)
-            usr_id = obj.id
+        if(email!=False):
+            try:
+                obj = users.objects.get(email=email)
+                usr_id = obj.id
 
-            share_project = user_access(
-                usr_id=usr_id, project_id=1, access_type=usr_id)
-            share_project.save()
+                #NEED TO DO THIS !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                #CHECK THAT USER ISNT ON PROJECT FIRST TO AVOID DUPLICATE ENTRIES
+                share_project = user_access(
+                    usr_id=usr_id, project_id=selected_project_id, access_type=access_type)
+                share_project.save()
+                messages.success(request, 'Your project has been shared with this user.')
+                proj=project.objects.get(id=selected_project_id)
+                pname = proj.project_name
+                msg = "Project "+pname+" has been shared with you by "+user_data['first_name']+" "+user_data['last_name']+"."
+                add_notification=notification(usr_id=usr_id,project_id=selected_project_id,msg=msg,created_at=datetime.date.today(),if_read=False)
+                add_notification.save()
+                return HttpResponseRedirect(reverse_lazy('share'))
 
-            # send email to that user that the project is added to their account
-        except users.DoesNotExist:
-            messages.error(request, 'This email does not have an account.')
-            return HttpResponseRedirect(reverse_lazy('share'))
+                # send email to that user that the project is added to their account
+            except users.DoesNotExist:
+                token=token_generator()
+                create_token = user_token(token=token,invited_email=email, 
+                created_at=datetime.date.today(), access_type=access_type, creator_id=user_data['id'])
+                create_token.save()
+                sendInvitation(receiver_email=email,token=token)
+                messages.success(request, 'An invitation has been sent to this user.')
+                return HttpResponseRedirect(reverse_lazy('share'))
+        else:
+            return render(request, 'share-project.html', 
+            {'user': user_data,
+            'notifications_not_read': notifications_not_read, 
+            'notifications_all': notifications_all,
+            'projects':disp_prj,
+            'submitted_project_id':int(selected_project_id),
+            'groups':disp_grp,
+            'submitted_group_id':int(selected_group_id)})
 
     else:
-        return render(request, 'share-project.html', {'notifications_not_read': notifications_not_read, 'notifications_all': notifications_all})
-
+        
+        return render(request, 'share-project.html', 
+        {'user': user_data,
+        'notifications_not_read': notifications_not_read, 
+        'notifications_all': notifications_all,
+        'projects':disp_prj,
+        'submitted_project_id':int(selected_project_id),
+        'groups':disp_grp,
+        'submitted_group_id':int(selected_group_id)})
 
 def dashboard(request):
+    single_sensor_data=[]
+    Tplot=[]
+    SMplot=[]
+    Hplot=[]
+    phPlot=[]
+    chart_sensor_data=[]
     user_data = request.session.get('user')
-    sensor_data = {
-        'temp': 20,
-        'sm': 70,
-        'hum': 30,
-        'ph': 5.6
-    }
+    pprint(user_data)
+    disp_sb_names = sensor_block.objects.none()
+    disp_prj = project.objects.none()
+    disp_grp = grp.objects.none()
+    user_id=user_data['id']
 
-    x_data = [0, 1, 2, 3]
-    y_data = [x**2 for x in x_data]
-    Tplot = plot([Scatter(x=x_data, y=y_data,
-                          mode='lines+markers', name='test',
-                          marker_color='green')],
-                 output_type='div', include_plotlyjs=False)
+    try:
+        notifications_not_read = notification.objects.filter(if_read=False,usr_id=user_id)
+        notifications_all = notification.objects.all().order_by('-created_at')
+    except:
+        notifications_not_read=None
+        notifications_all=None
 
-    # selected_project = request.POST.get('select_project', None)  
-    # print(selected_project)
-    return render(request, 'home.html', {'user': user_data, 'sensor_data': sensor_data, 'temp_plot': Tplot})
+    disp_prj = getDisplayedProjects(user_id)
+    selected_project_id=request.session.get('s_p',False)
+    selected_group_id=request.session.get('s_g',False)
+    
+    #load prediction and images
+    print("group in view")
+    print(selected_group_id)
+    growth,health,img_path=getPrediction(selected_group_id)
+
+    if (request.method == "POST"):
+        selected_sb_name = request.POST.get('select_blocks',False)
+        selected_project_id = request.POST.get('select_project',False)
+        selected_group_id = request.POST.get('select_group',False)
+        
+        print(selected_project_id)
+
+        if(selected_project_id!=False):
+            request.session['s_p']=selected_project_id
+            request.session['s_g']=False
+
+        else:
+            selected_project_id=request.session.get('s_p',False)
+
+        if(selected_group_id!=False):
+            request.session['s_g']=selected_group_id
+        else:
+            selected_group_id=request.session.get('s_g',False)
+
+        if(selected_sb_name!=False):
+            request.session['s_sb']=selected_sb_name
+        else:
+            selected_sb_name=request.session.get('s_sb',False)
+
+        print(selected_project_id)
+        print("$$$$$$$")
+        print(selected_group_id)
+        if(selected_group_id!=False):
+            print(selected_group_id)
+            print(selected_sb_name)
+            try:
+                if(selected_sb_name!=False):
+                    single_sensor_data = getSensorReadings(selected_group_id,selected_sb_name)
+                else:
+                    selected_sb_name='Average'
+            
+                if(selected_sb_name=='Average'):
+                    chart_sensor_data=getAvgChartData(selected_group_id)
+                else:
+                    chart_sensor_data=getChartData(selected_group_id,selected_sb_name)
+                print(chart_sensor_data)
+                n=3
+                Tplot,SMplot,Hplot,phPlot = getPlots(chart_sensor_data,n)
+
+            except:
+                print('no sensor blocks assigned to group, no data')
+            
+            disp_sb_names = getDisplayedSensorBlocks(selected_group_id)
+
+        disp_grp = getDisplayedGroups(selected_project_id)
+        growth,health,img_path=getPrediction(selected_group_id)
+
+        return render(request,'home.html',
+        {'user': user_data,
+        'sensor_data':single_sensor_data,
+        'temp_plot':Tplot,
+        'sm_plot':SMplot,
+        'ph_plot':phPlot,
+        'hum_plot':Hplot,
+        'sensor_blocks':disp_sb_names,
+        'submitted_sb_name':selected_sb_name,
+        'projects':disp_prj,
+        'submitted_project_id':int(selected_project_id),
+        'groups':disp_grp,
+        'submitted_group_id':int(selected_group_id),
+        'notifications_not_read': notifications_not_read, 
+        'notifications_all': notifications_all,
+        'growth':growth,
+        'health':health,
+        'img_path':img_path})
+    else:
+        print("******")
+        print(selected_project_id)
+        return render(request,'home.html',
+        {'user': user_data,
+        'sensor_blocks':disp_sb_names,
+        'projects':disp_prj,
+        'submitted_project_id':int(selected_project_id),
+        'groups':disp_grp,
+        'submitted_group_id':int(selected_group_id),
+        'notifications_not_read': notifications_not_read, 
+        'notifications_all': notifications_all,
+        'growth':growth,
+        'health':health,
+        'img_path':img_path})
+   
 
 
 def newproject(request):
@@ -167,16 +342,13 @@ def newproject(request):
         return redirect(reverse("newgroup", kwargs={'project_id': str(project_id), 'groups_num': str(groups_num)}))
 
     else:
-        return render(request, 'newproject.html')
-
+        return render(request, 'newproject.html',{'user': currUser,})
 
 def newgroup(request, project_id, groups_num):
-    
-    # --- Start of Project Selection Options --- #
 
-    currUser = request.session.get('user')
-    userID = currUser['id']
-    
+    user_data = request.session.get('user')
+    userID = user_data['id']
+
     userSettings = []
     settingsNames = []
     settingsIDs = []
@@ -220,7 +392,6 @@ def newgroup(request, project_id, groups_num):
     settingsInfo = list(zip(settingsNames, settingsIDs))
 
     # --- End of Project Selection Options --- #
-
 
     group_ids = []
     num_sensors = []
@@ -274,20 +445,21 @@ def newgroup(request, project_id, groups_num):
 
         request.session['group_ids'] = group_ids
         request.session['num_sensors'] = num_sensors
+        request.session['first'] = True
 
         # First sensor form
-        SensorFormSet = modelformset_factory(sensor_block, exclude=('group_id','sensor_block_name'), extra = num_sensors[0])
+        SensorFormSet = modelformset_factory(sensor_block, exclude=('group_id','sensor_block_name',), extra = num_sensors[0])
         sensor_set = SensorFormSet(queryset = sensor_block.objects.none())
-        return render(request, 'sensors.html',{'sensor_set':sensor_set})
+        return render(request, 'sensors.html',{'sensor_set':sensor_set, 'group':1,'user': user_data})
     
     if request.method != "POST":
-        return render(request, 'newgroup.html',{'project_name':project_name, 'form_set':form_set, 
+        return render(request, 'newgroup.html',{'project_name':project_name, 'form_set':form_set,'user': user_data, 
         'namesCounter':range(namesCounter), 'settingsInfo':settingsInfo})
 
     # Rest of sensor forms
     num_sensors = request.session.get('num_sensors')
     group_ids = request.session.get('group_ids')
-    SensorFormSet = modelformset_factory(sensor_block, exclude=('group_id','sensor_block_name'), extra = num_sensors[0])
+    SensorFormSet = modelformset_factory(sensor_block, exclude=('group_id','sensor_block_name',), extra = num_sensors[0])
     sensor_set = SensorFormSet(queryset = sensor_block.objects.none())
 
     if request.method == "POST" and 'sensor_btn' in request.POST:
@@ -307,12 +479,10 @@ def newgroup(request, project_id, groups_num):
     length = len(num_sensors)
     if extra_index == len(num_sensors):
         return redirect('/app/')
-
     else:
         SensorFormSet = modelformset_factory(sensor_block, exclude=('group_id','sensor_block_name',), extra = num_sensors[extra_index])
         sensor_set = SensorFormSet(queryset = sensor_block.objects.none())
-        return render(request, 'sensors.html',{'sensor_set':sensor_set})
-    
+        return render(request, 'sensors.html',{'sensor_set':sensor_set,'group':extra_index+1,'user': user_data})
 
 def update_settings_dropdown(request, project_id, groups_num):
     dropdownValue = request.GET.get('dropdownValue')
@@ -321,16 +491,54 @@ def update_settings_dropdown(request, project_id, groups_num):
         currG_sID = request.session.get('createdGroups_sID')
         currG_sID.append(dropdownValue)
         request.session['createdGroups_sID'] = currG_sID
-    return render(request, 'Empty.html', {})
+    return render(request, 'EmptyPage.html')
 
+def project_settings(request):
 
-def project_settings(request, project_id):
+    user_data = request.session.get('user')
+    try:
+        notifications_not_read = notification.objects.filter(if_read=False,usr_id=user_data['id'])
+        notifications_all = notification.objects.all().order_by('-created_at')
+    except:
+        notifications_not_read=None
+        notifications_all=None
 
-    project_obj = project.objects.get(id = project_id)
+     ## NAVBAR
+
+    disp_sb_names = sensor_block.objects.none()
+    disp_prj = project.objects.none()
+    disp_grp = grp.objects.none()
+    user_id=user_data['id']
+
+    disp_prj = getDisplayedProjects(user_id)
+    selected_project_id=request.session.get('s_p',False)
+    selected_group_id=request.session.get('s_g',False)
+
+    if (request.method == "POST"):
+        selected_project_id = request.POST.get('select_project',False)
+        selected_group_id = request.POST.get('select_group',False)
+        
+        print(selected_project_id)
+
+        if(selected_project_id!=False):
+            request.session['s_p']=selected_project_id
+            request.session['s_g']=False
+
+        else:
+            selected_project_id=request.session.get('s_p',False)
+
+        if(selected_group_id!=False):
+            request.session['s_g']=selected_group_id
+        else:
+            selected_group_id=request.session.get('s_g',False)
+
+    ## NAVBAR
+
+    project_obj = project.objects.get(id = selected_project_id)
     project_name = project_obj.project_name
 
     ProjectSettings = modelformset_factory(model=project,form = projectForm, exclude = (), extra = 0)
-    form_set = ProjectSettings(queryset=project.objects.filter(id=project_id))
+    form_set = ProjectSettings(queryset=project.objects.filter(id=selected_project_id))
     
     if request.method == "POST":
         form_set = ProjectSettings(request.POST or None, request.FILES or None)
@@ -338,14 +546,62 @@ def project_settings(request, project_id):
             form_set.save()
             return redirect('/app/')
 
-    return render(request, 'project_settings.html',{'project_name':project_name, 'form_set':form_set})
+    return render(request, 
+    'project_settings.html',
+    {'project_name':project_name, 
+    'form_set':form_set,
+    'user': user_data,
+    'projects':disp_prj,
+    'submitted_project_id':int(selected_project_id),
+    'groups':disp_grp,
+    'submitted_group_id':int(selected_group_id),
+    'notifications_not_read': notifications_not_read, 
+    'notifications_all': notifications_all})
 
-def group_settings(request, project_id, group_id):
+def group_settings(request):
+
+    user_data = request.session.get('user')
+    try:
+        notifications_not_read = notification.objects.filter(if_read=False,usr_id=user_data['id'])
+        notifications_all = notification.objects.all().order_by('-created_at')
+    except:
+        notifications_not_read=None
+        notifications_all=None
+
+     ## NAVBAR
+
+    disp_sb_names = sensor_block.objects.none()
+    disp_prj = project.objects.none()
+    disp_grp = grp.objects.none()
+    user_id=user_data['id']
+
+    disp_prj = getDisplayedProjects(user_id)
+    selected_project_id=request.session.get('s_p',False)
+    selected_group_id=request.session.get('s_g',False)
+
+    if (request.method == "POST"):
+        selected_project_id = request.POST.get('select_project',False)
+        selected_group_id = request.POST.get('select_group',False)
+        
+        print(selected_project_id)
+
+        if(selected_project_id!=False):
+            request.session['s_p']=selected_project_id
+            request.session['s_g']=False
+
+        else:
+            selected_project_id=request.session.get('s_p',False)
+
+        if(selected_group_id!=False):
+            request.session['s_g']=selected_group_id
+        else:
+            selected_group_id=request.session.get('s_g',False)
+
+    ## NAVBAR
     
-    grp_obj = grp.objects.get(id = group_id)
-    project_name = project.objects.get(id = project_id).project_name
+    grp_obj = grp.objects.get(id = selected_group_id)
+    project_name = project.objects.get(id = selected_project_id).project_name
     settings_id = grp_obj.settings_id
-    grp_name = settings.objects.get(id = group_id).name
 
     GroupSettings = modelformset_factory(settings, exclude = (), extra = 0)
     form_set = GroupSettings(queryset=settings.objects.filter(id=settings_id))
@@ -356,7 +612,18 @@ def group_settings(request, project_id, group_id):
             form_set.save()
             return redirect('/app/')
 
-    return render(request, 'group_settings.html',{'project_name':project_name, 'group_name':grp_name, 'form_set':form_set})
+    return render(request, 
+    'group_settings.html',
+    {'project_name':project_name, 
+    'group_name':selected_group_id, 
+    'form_set':form_set,
+    'user': user_data,
+    'projects':disp_prj,
+    'submitted_project_id':int(selected_project_id),
+    'groups':disp_grp,
+    'submitted_group_id':int(selected_group_id),
+    'notifications_not_read': notifications_not_read, 
+    'notifications_all': notifications_all})
 
 def change_password(request):
     currUser = request.session.get('user')

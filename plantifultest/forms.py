@@ -1,11 +1,21 @@
 from django.forms import ModelForm
 from django import forms
-from .models import *
+from .models import settings
 
-# class settingsForm(forms.Form):
-#     class Meta:
-#         model = settings
-#         fields = '__all__'
+#class settingsForm(ModelForm):
+#    class Meta:
+#        model = settings
+#        fields = '__all__'
+
+Sensors= [
+    ('Temperature', 'Temperature'),
+    ('Soil Moisture', 'Soil Moisture'),
+    ('Humidity', 'Humidity'),
+    ('pH', 'pH'),
+ ]
+
+class CHOICES(forms.Form):
+    Sensors = forms.CharField(widget=forms.RadioSelect(choices=Sensors))
 
     # def __init__(self, *args, **kwargs):
     #     super().__init__(*args, **kwargs)

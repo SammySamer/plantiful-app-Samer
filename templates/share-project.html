@@ -54,7 +54,7 @@
 
         <!-- Nav Item - Dashboard -->
         <li class="nav-item active">
-          <a class="nav-link" href="index.html">
+          <a class="nav-link" href="{% url 'dashboard' %}">
             <i class="fas fa-fw fa-tachometer-alt"></i>
             <span>Dashboard</span></a
           >
@@ -68,14 +68,14 @@
 
         <!-- Nav Item - Collapse Menu -->
         <li class="nav-item">
-          <a class="nav-link" href="#">
-            <span>Partition Settings</span>
+          <a class="nav-link" href="{% url 'group_settings' %}">
+            <span>Group Settings</span>
           </a>
         </li>
 
         <!-- Nav Item - Collapse Menu -->
         <li class="nav-item">
-          <a class="nav-link collapsed" href="#">
+          <a class="nav-link collapsed" href="{% url 'project_settings' %}">
             <span>Project Settings</span>
           </a>
         </li>
@@ -121,7 +121,7 @@
                    
               </form>
 
-             <form method="POST" action="/app/share/" style="margin-top:12px; margin-left:12px"> 
+             <form method="POST" action="/app/share/" style="margin-top:12px"> 
                 {% csrf_token %}
                   <select name="select_group" class="nav_item nav-link" onChange="form.submit();">
                     <option selected="selected" disabled>Select a group:</option>
@@ -172,10 +172,10 @@
                   
                   {% for notification in notifications_all|slice:":2"  %}
                   <div class="dropdown-item d-flex align-items-center" >
-                    <div>
+                    <div >
                       <div class="small text-gray-500">{{notification.created_at}}</div>
                       
-                          <span class="font-weight-normal">{{notification.msg}}</span>
+                          <span class="font-weight-normal" style="white-space: pre-wrap">{{notification.msg}}</span>
                       
                     </div>
                   </div>
@@ -218,6 +218,10 @@
                   <a class="dropdown-item" href="#">
                     <i class="fas fa-user fa-sm fa-fw mr-2 text-gray-400"></i>
                     Profile
+                  </a>
+                  <a class="dropdown-item" href="{% url 'change_password' %}">
+                    <i class="fas fa-cogs fa-sm fa-fw mr-2 text-gray-400"></i>
+                    Change Password
                   </a>
                   <a class="dropdown-item" href="#">
                     <i class="fas fa-cogs fa-sm fa-fw mr-2 text-gray-400"></i>
